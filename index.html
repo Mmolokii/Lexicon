@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Lexicon — browser-based JSON explorer" />
+  <title>Lexicon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header class="header" role="banner">
+    <div class="header__left">
+      <span class="wordmark">Lexicon</span>
+      <span class="wordmark-subtitle">json explorer</span>
+    </div>
+
+    <div class="header__center">
+      <div class="mode-toggle" role="tablist" aria-label="View mode">
+        <button class="mode-toggle__item mode-toggle__item--active" role="tab" aria-selected="true"
+          data-mode="explorer">Explorer</button>
+        <button class="mode-toggle__item" role="tab" aria-selected="false" data-mode="diff">Diff</button>
+      </div>
+    </div>
+
+    <div class="header__right">
+      <kbd class="kbd-chip">⌘ K</kbd>
+      <div class="header__separator"></div>
+      <button class="theme-toggle" aria-label="Toggle theme" title="Toggle light/dark mode">
+        <svg class="icon icon--moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+        <svg class="icon icon--sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" style="display:none">
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main workspace -->
+  <main class="workspace" role="main">
+
+    <!-- Input pane -->
+    <section class="pane pane--input" aria-label="JSON input">
+      <div class="pane__toolbar">
+        <button class="toolbar-btn" id="btn-format" title="Format JSON (⌘⇧F)" aria-label="Format JSON">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+        </button>
+        <button class="toolbar-btn" id="btn-copy-raw" title="Copy raw JSON" aria-label="Copy raw JSON">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+        </button>
+        <button class="toolbar-btn" id="btn-clear" title="Clear input" aria-label="Clear input">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <textarea id="json-input" class="json-textarea" spellcheck="false" autocorrect="off" autocapitalize="off"
+        aria-label="JSON input area" aria-multiline="true" placeholder='Paste JSON here...
+
+{
+  "user": {
+    "name": "..."
+  }
+} 
+
+⌘ ↵ to parse  ·  ⌘ ⇧ F to format'></textarea>
+
+      <!-- Error strip -->
+      <div class="error-strip" id="error-strip" role="alert" aria-live="polite" hidden>
+        <span class="error-strip__message" id="error-message"></span>
+        <button class="error-strip__close" id="btn-error-close" aria-label="Dismiss error">×</button>
+      </div>
+    </section>
+
+    <!-- Resizable divider -->
+    <div class="pane-divider" id="pane-divider" role="separator" aria-orientation="vertical" aria-label="Resize panes">
+    </div>
+
+    <!-- Output pane -->
+    <section class="pane pane--output" aria-label="JSON tree output">
+
+      <!-- Empty state -->
+      <div class="empty-state" id="empty-state">
+        <div class="empty-state__icon">{ }</div>
+        <p class="empty-state__title">Paste JSON to explore</p>
+        <p class="empty-state__hint">⌘ ↵ to parse · ⌘ ⇧ D for diff mode</p>
+        <p class="empty-state__supports">
+          Supports: Objects · Arrays · Nested structures · Unicode
+        </p>
+      </div>
+
+      <!-- Tree container -->
+      <div class="tree-container" id="tree-container" role="tree" aria-label="JSON tree" hidden></div>
+
+    </section>
+
+  </main>
+
+  <!-- Status bar -->
+  <footer class="status-bar" role="contentinfo">
+    <div class="status-bar__left" id="status-left">
+      <span class="status-chip" id="status-nodes" hidden>0 nodes</span>
+      <span class="status-chip" id="status-depth" hidden>depth: 0</span>
+      <span class="status-chip" id="status-size" hidden>~0KB</span>
+    </div>
+    <div class="status-bar__right" id="status-right">
+      <span class="status-chip status-chip--path" id="status-path" hidden></span>
+    </div>
+  </footer>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden>
+    <span class="toast__check">✓</span>
+    <div class="toast__content">
+      <span class="toast__label" id="toast-label"></span>
+      <span class="toast__value" id="toast-value"></span>
+    </div>
+  </div>
+
+  <script src="src/utils.js"></script>
+  <script src="src/parser.js"></script>
+  <script src="src/renderer.js"></script>
+  <script src="src/main.js"></script>
+</body>
+
+</html>
