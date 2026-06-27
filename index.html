@@ -57,43 +57,93 @@
 
     <!-- Input pane -->
     <section class="pane pane--input" aria-label="JSON input">
-      <div class="pane__toolbar">
-        <button class="toolbar-btn" id="btn-format" title="Format JSON (⌘⇧F)" aria-label="Format JSON">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="16 18 22 12 16 6" />
-            <polyline points="8 6 2 12 8 18" />
-          </svg>
-        </button>
-        <button class="toolbar-btn" id="btn-copy-raw" title="Copy raw JSON" aria-label="Copy raw JSON">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>
-        </button>
-        <button class="toolbar-btn" id="btn-clear" title="Clear input" aria-label="Clear input">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+
+      <!-- Input mode tabs -->
+      <div class="input-tabs" role="tablist" aria-label="Input mode">
+        <button class="input-tab input-tab--active" role="tab" aria-selected="true" aria-controls="panel-paste"
+          data-tab="paste">Paste</button>
+        <button class="input-tab" role="tab" aria-selected="false" aria-controls="panel-url" data-tab="url">URL</button>
       </div>
 
-      <textarea id="json-input" class="json-textarea" spellcheck="false" autocorrect="off" autocapitalize="off"
-        aria-label="JSON input area" aria-multiline="true" placeholder='Paste JSON here...
+      <!-- Paste panel -->
+      <div class="input-panel" id="panel-paste" role="tabpanel">
+        <div class="pane__toolbar">
+          <button class="toolbar-btn" id="btn-format" title="Format JSON (⌘⇧F)" aria-label="Format JSON">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+          </button>
+          <button class="toolbar-btn" id="btn-copy-raw" title="Copy raw JSON" aria-label="Copy raw JSON">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          </button>
+          <button class="toolbar-btn" id="btn-clear" title="Clear input" aria-label="Clear input">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <textarea id="json-input" class="json-textarea" spellcheck="false" autocorrect="off" autocapitalize="off"
+          aria-label="JSON input area" placeholder='Paste JSON here...
 
 {
   "user": {
     "name": "..."
   }
-} 
+}
 
-⌘ ↵ to parse  ·  ⌘ ⇧ F to format'></textarea>
+⌘↵ to parse  ·  ⌘⇧F to format'></textarea>
+      </div>
 
-      <!-- Error strip -->
+      <!-- URL panel -->
+      <div class="input-panel input-panel--hidden" id="panel-url" role="tabpanel">
+        <div class="url-panel">
+
+          <div class="url-input-row">
+            <input type="url" id="url-input" class="url-input" placeholder="https://api.github.com/users/torvalds"
+              spellcheck="false" aria-label="JSON URL" />
+            <button class="url-fetch-btn" id="btn-fetch" aria-label="Fetch URL">
+              Load
+            </button>
+          </div>
+
+          <!-- Fetch status -->
+          <div class="fetch-status" id="fetch-status" hidden>
+            <span class="fetch-status__icon" id="fetch-status-icon"></span>
+            <span class="fetch-status__text" id="fetch-status-text"></span>
+          </div>
+
+          <!-- Quick URLs -->
+          <div class="quick-urls">
+            <p class="quick-urls__label">Try these</p>
+            <button class="quick-url-btn" data-url="https://api.github.com/users/torvalds">
+              github.com/users/torvalds
+            </button>
+            <button class="quick-url-btn" data-url="https://jsonplaceholder.typicode.com/users/1">
+              jsonplaceholder — user
+            </button>
+            <button class="quick-url-btn" data-url="https://jsonplaceholder.typicode.com/posts">
+              jsonplaceholder — posts
+            </button>
+            <button class="quick-url-btn" data-url="https://api.github.com/repos/microsoft/vscode">
+              github.com/repos/vscode
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Error strip — shared between both panels -->
       <div class="error-strip" id="error-strip" role="alert" aria-live="polite" hidden>
         <span class="error-strip__message" id="error-message"></span>
         <button class="error-strip__close" id="btn-error-close" aria-label="Dismiss error">×</button>
       </div>
+
     </section>
 
     <!-- Resizable divider -->
