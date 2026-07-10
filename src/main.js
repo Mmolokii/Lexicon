@@ -168,7 +168,9 @@ const loadFromUrl = async url => {
     activeFetchController.abort();
   }
 
-  activeFetchController = new AbortController();
+  // Save locally so we can detect if a newer call superseded us
+  const controller = new AbortController();
+  activeFetchController = controller;
 
   // UI: loading state
   ELEMENTS.btnFetch.disabled = true;
@@ -178,7 +180,12 @@ const loadFromUrl = async url => {
   showEmptyState();
   clearStatus();
 
-  const result = await fetchJSON(url, activeFetchController.signal);
+  const result = await fetchJSON(url, controller.signal);
+
+  // A newer request started while we were waiting — bail silently
+  // Without this guard, the aborted call's cleanup runs over the
+  // newer call's loading state (re-enables button, hides spinner)
+  if (activeFetchController !== controller) return;
   activeFetchController = null;
 
   // UI: reset button
