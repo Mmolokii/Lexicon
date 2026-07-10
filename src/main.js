@@ -27,6 +27,15 @@ const ELEMENTS = {
   pane: document.querySelector('.pane--input'),
   paneOutput: document.querySelector('.pane--output'),
   divider: document.getElementById('pane-divider'),
+  urlInput: document.getElementById('url-input'),
+  btnFetch: document.getElementById('btn-fetch'),
+  fetchStatus: document.getElementById('fetch-status'),
+  fetchStatusIcon: document.getElementById('fetch-status-icon'),
+  fetchStatusText: document.getElementById('fetch-status-text'),
+  inputTabs: document.querySelectorAll('.input-tab'),
+  panelPaste: document.getElementById('panel-paste'),
+  panelUrl: document.getElementById('panel-url'),
+  quickUrlBtns: document.querySelectorAll('.quick-url-btn'),
 };
 
 // Validate all elements exist
@@ -40,8 +49,9 @@ Object.entries(ELEMENTS).forEach(([name, el]) => {
 // Renderer instance
 const renderer = createRenderer();
 
-// UI helpers
+let activeFetchController = null; // AbortController for in-flight fetch
 
+// UI helpers
 const showError = message => {
   ELEMENTS.errorMessage.textContent = message;
   ELEMENTS.errorStrip.hidden = false;
@@ -105,6 +115,104 @@ const showToast = (label, value) => {
       ELEMENTS.toast.hidden = true;
     }, 200);
   }, 2500);
+};
+
+// Fetch status UI
+const showFetchStatus = (state, content) => {
+  // state: 'loading' | 'success' | 'error'
+  ELEMENTS.fetchStatus.hidden = false;
+  ELEMENTS.fetchStatus.className = `fetch-status fetch-status--${state}`;
+
+  if (state === 'loading') {
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    ELEMENTS.fetchStatusIcon.innerHTML = '';
+    ELEMENTS.fetchStatusIcon.appendChild(spinner);
+  } else if (state === 'success') {
+    ELEMENTS.fetchStatusIcon.textContent = '✓';
+  } else {
+    ELEMENTS.fetchStatusIcon.textContent = '✗';
+  }
+
+  ELEMENTS.fetchStatusText.textContent = content;
+};
+
+const hideFetchStatus = () => {
+  ELEMENTS.fetchStatus.hidden = true;
+};
+
+// Input tab switching
+const switchInputTab = tabName => {
+  ELEMENTS.inputTabs.forEach(tab => {
+    const isActive = tab.dataset.tab === tabName;
+    tab.classList.toggle('input-tab--active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+  });
+
+  if (tabName === 'paste') {
+    ELEMENTS.panelPaste.classList.remove('input-panel--hidden');
+    ELEMENTS.panelUrl.classList.add('input-panel--hidden');
+  } else {
+    ELEMENTS.panelPaste.classList.add('input-panel--hidden');
+    ELEMENTS.panelUrl.classList.remove('input-panel--hidden');
+    ELEMENTS.urlInput.focus();
+  }
+};
+
+// URL fetch
+const loadFromUrl = async url => {
+  if (!url.trim()) return;
+
+  // Cancel any in-flight request
+  if (activeFetchController) {
+    activeFetchController.abort();
+  }
+
+  activeFetchController = new AbortController();
+
+  // UI: loading state
+  ELEMENTS.btnFetch.disabled = true;
+  ELEMENTS.btnFetch.textContent = 'Loading...';
+  showFetchStatus('loading', `Fetching ${url}`);
+  hideError();
+  showEmptyState();
+  clearStatus();
+
+  const result = await fetchJSON(url, activeFetchController.signal);
+  activeFetchController = null;
+
+  // UI: reset button
+  ELEMENTS.btnFetch.disabled = false;
+  ELEMENTS.btnFetch.textContent = 'Load';
+
+  // Intentional cancel — do not update UI
+  if (!result.ok && result.type === 'abort') {
+    hideFetchStatus();
+    return;
+  }
+
+  if (!result.ok) {
+    showFetchStatus('error', result.error);
+    showEmptyState();
+    return;
+  }
+
+  // Success
+  showFetchStatus('success', `Loaded in ${result.duration}ms`);
+
+  currentData = result.data;
+  currentRaw = result.raw;
+
+  renderer.clearCollapsed();
+  renderer.render(ELEMENTS.treeContainer, currentData, path => {
+    showPathInStatus(path);
+    copyToClipboard(path || '(root)').then(success => {
+      if (success) showToast('Path copied', path || '(root)');
+    });
+  });
+
+  showTree();
+  updateStatus(currentData, currentRaw);
 };
 
 // Core: parse and render
@@ -214,6 +322,35 @@ ELEMENTS.modeBtns.forEach(btn => {
   });
 });
 
+// Tab switching
+
+ELEMENTS.inputTabs.forEach(tab => {
+  tab.addEventListener('click', () => switchInputTab(tab.dataset.tab));
+});
+
+// URL fetch
+
+ELEMENTS.btnFetch.addEventListener('click', () => {
+  loadFromUrl(ELEMENTS.urlInput.value.trim());
+});
+
+// Enter key in URL input triggers fetch
+ELEMENTS.urlInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    loadFromUrl(ELEMENTS.urlInput.value.trim());
+  }
+});
+
+// Quick URL buttons
+ELEMENTS.quickUrlBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const url = btn.dataset.url;
+    ELEMENTS.urlInput.value = url;
+    loadFromUrl(url);
+  });
+});
+
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
   const isMac = navigator.platform.toUpperCase().includes('MAC');
@@ -247,9 +384,23 @@ document.addEventListener('keydown', e => {
       .forEach(r => r.classList.remove('tree-row--selected'));
     ELEMENTS.statusPath.hidden = true;
   }
+
+  // cmd + shift + U - switch to URL tab
+  if (cmdOrCtrl && e.shiftKey && e.key === 'U') {
+    e.preventDefault();
+    switchInputTab('url');
+    return;
+  }
+
+  // cmd + shift + P
+  if (cmdOrCtrl && e.shiftKey && e.key === 'P') {
+    e.preventDefault();
+    switchInputTab('paste');
+    return;
+  }
 });
 
-// ── Pane resizer ─────────────────────────────────────────────
+// Pane resizer
 
 (() => {
   const divider = ELEMENTS.divider;
