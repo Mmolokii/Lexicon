@@ -153,18 +153,39 @@
     <!-- Output pane -->
     <section class="pane pane--output" aria-label="JSON tree output">
 
+      <!-- Output toolbar — hidden until JSON is parsed -->
+      <div class="output-toolbar" id="output-toolbar" hidden>
+        <div class="output-toolbar__left">
+          <span class="output-toolbar__label">Collapse to</span>
+          <div class="depth-btns" role="group" aria-label="Collapse to depth">
+            <button class="depth-btn" data-depth="0" title="Collapse all">All</button>
+            <button class="depth-btn" data-depth="1" title="Show depth 1">1</button>
+            <button class="depth-btn" data-depth="2" title="Show depth 2">2</button>
+            <button class="depth-btn" data-depth="3" title="Show depth 3">3</button>
+          </div>
+        </div>
+        <div class="output-toolbar__right">
+          <button class="output-action-btn" id="btn-expand-all" title="Expand all (⌘⇧A)">
+            Expand all
+          </button>
+          <button class="output-action-btn" id="btn-collapse-all" title="Collapse all (⌘⇧0)">
+            Collapse all
+          </button>
+        </div>
+      </div>
+
       <!-- Empty state -->
       <div class="empty-state" id="empty-state">
         <div class="empty-state__icon">{ }</div>
         <p class="empty-state__title">Paste JSON to explore</p>
-        <p class="empty-state__hint">⌘ ↵ to parse · ⌘ ⇧ D for diff mode</p>
+        <p class="empty-state__hint">⌘↵ to parse · ⌘⇧D for diff mode</p>
         <p class="empty-state__supports">
           Supports: Objects · Arrays · Nested structures · Unicode
         </p>
       </div>
 
       <!-- Tree container -->
-      <div class="tree-container" id="tree-container" role="tree" aria-label="JSON tree" hidden></div>
+      <div class="tree-container" id="tree-container" role="tree" aria-label="JSON tree" tabindex="0" hidden></div>
 
     </section>
 
