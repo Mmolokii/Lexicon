@@ -36,6 +36,17 @@ const ELEMENTS = {
   panelPaste: document.getElementById('panel-paste'),
   panelUrl: document.getElementById('panel-url'),
   quickUrlBtns: document.querySelectorAll('.quick-url-btn'),
+  outputToolbar: document.getElementById('output-toolbar'),
+  btnExpandAll: document.getElementById('btn-expand-all'),
+  btnCollapseAll: document.getElementById('btn-collapse-all'),
+  depthBtns: document.querySelectorAll('.depth-btn'),
+};
+
+const onSelectHandler = path => {
+  showPathInStatus(path);
+  copyToClipboard(path || '(root)').then(success => {
+    if (success) showToast('Path copied', path || '(root)');
+  });
 };
 
 // Validate all elements exist
@@ -65,11 +76,13 @@ const hideError = () => {
 const showTree = () => {
   ELEMENTS.emptyState.hidden = true;
   ELEMENTS.treeContainer.hidden = false;
+  ELEMENTS.outputToolbar.hidden = false;
 };
 
 const showEmptyState = () => {
   ELEMENTS.emptyState.hidden = false;
   ELEMENTS.treeContainer.hidden = true;
+  ELEMENTS.outputToolbar.hidden = true;
 };
 
 const updateStatus = (data, raw) => {
@@ -115,6 +128,15 @@ const showToast = (label, value) => {
       ELEMENTS.toast.hidden = true;
     }, 200);
   }, 2500);
+};
+
+const setActiveDepthBtn = depth => {
+  ELEMENTS.depthBtns.forEach(btn => {
+    btn.classList.toggle(
+      'depth-btn--active',
+      parseInt(btn.dataset.depth, 10) === depth
+    );
+  });
 };
 
 // Fetch status UI
@@ -252,14 +274,7 @@ const parseAndRender = () => {
 
   renderer.clearCollapsed();
 
-  renderer.render(ELEMENTS.treeContainer, currentData, path => {
-    showPathInStatus(path);
-    copyToClipboard(path || '(root)').then(success => {
-      if (success) {
-        showToast('Path copied', path || '(root)');
-      }
-    });
-  });
+  renderer.render(ELEMENTS.treeContainer, currentData, onSelectHandler);
 
   showTree();
   updateStatus(currentData, currentRaw);
@@ -330,13 +345,11 @@ ELEMENTS.modeBtns.forEach(btn => {
 });
 
 // Tab switching
-
 ELEMENTS.inputTabs.forEach(tab => {
   tab.addEventListener('click', () => switchInputTab(tab.dataset.tab));
 });
 
 // URL fetch
-
 ELEMENTS.btnFetch.addEventListener('click', () => {
   loadFromUrl(ELEMENTS.urlInput.value.trim());
 });
@@ -356,6 +369,48 @@ ELEMENTS.quickUrlBtns.forEach(btn => {
     ELEMENTS.urlInput.value = url;
     loadFromUrl(url);
   });
+});
+
+// Output toolbar
+ELEMENTS.btnExpandAll.addEventListener('click', () => {
+  if (!currentData) return;
+  renderer.expandAll();
+  renderer.render(ELEMENTS.treeContainer, currentData, onSelectHandler);
+  setActiveDepthBtn(-1); // no depth is active after expand all
+});
+
+ELEMENTS.btnCollapseAll.addEventListener('click', () => {
+  if (!currentData) return;
+  renderer.collapseAll(currentData);
+  renderer.render(ELEMENTS.treeContainer, currentData, onSelectHandler);
+  setActiveDepthBtn(0);
+});
+
+ELEMENTS.depthBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!currentData) return;
+    const depth = parseInt(btn.dataset.depth, 10);
+    renderer.clearCollapsed();
+    renderer.collapseToDepth(currentData, depth);
+    renderer.render(ELEMENTS.treeContainer, currentData, onSelectHandler);
+    setActiveDepthBtn(depth);
+  });
+});
+
+// Tree keyboard navigation
+ELEMENTS.treeContainer.addEventListener('keydown', e => {
+  if (!currentData) return;
+  renderer.handleKeyNav(
+    e,
+    ELEMENTS.treeContainer,
+    currentData,
+    onSelectHandler
+  );
+});
+
+// Focus the tree when clicking the output pane
+ELEMENTS.treeContainer.addEventListener('click', () => {
+  ELEMENTS.treeContainer.focus({ preventScroll: true });
 });
 
 // Keyboard shortcuts
