@@ -1,18 +1,12 @@
 const createRenderer = () => {
-  // Set of node paths that are currently collapsed.
-  // Paths are dot-notation strings: "address", "address.geo", etc.
   const collapsedPaths = new Set();
+  let focusedPath = null; // path of the keyboard-focused row
+  let onSelectCallback = null; // stored so keyboard nav can trigger it
 
   // Private helpers
 
-  /**
-   * Builds the indent padding style for a given depth.
-   */
   const getIndentStyle = depth => `padding-left: ${16 + depth * 20}px`;
 
-  /**
-   * Creates the SVG chevron icon used as a collapse toggle.
-   */
   const createChevron = () => {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '9');
@@ -23,21 +17,15 @@ const createRenderer = () => {
     svg.setAttribute('stroke-width', '2.5');
     svg.setAttribute('stroke-linecap', 'round');
     svg.setAttribute('stroke-linejoin', 'round');
-
     const path = document.createElementNS(
       'http://www.w3.org/2000/svg',
       'polyline'
     );
     path.setAttribute('points', '6 9 12 15 18 9');
     svg.appendChild(path);
-
     return svg;
   };
 
-  /**
-   * Creates a span with a given class and text content.
-   * The workhorse of building tree row content.
-   */
   const createSpan = (className, text) => {
     const span = document.createElement('span');
     span.className = className;
@@ -45,9 +33,6 @@ const createRenderer = () => {
     return span;
   };
 
-  /**
-   * Returns the CSS value class for a given JSON type and value.
-   */
   const getValueClass = (type, value) => {
     if (type === 'null') return 'tree-row__value value--null';
     if (type === 'number') return 'tree-row__value value--number';
@@ -60,9 +45,6 @@ const createRenderer = () => {
     return 'tree-row__value value--bracket';
   };
 
-  /**
-   * Formats a primitive value for display.
-   */
   const formatValue = (type, value) => {
     if (type === 'null') return 'null';
     if (type === 'string') return `"${value}"`;
@@ -71,51 +53,124 @@ const createRenderer = () => {
     return String(value);
   };
 
-  // Row builders
+  // Subtree operations
 
   /**
-   * Builds a single tree row element.
-   * Handles both leaf nodes (primitives) and branch nodes (objects/arrays).
-   *
-   * @param {string} key       - The key name to display (empty string for root)
-   * @param {*} value          - The JSON value at this node
-   * @param {number} depth     - Current nesting depth (0 = root)
-   * @param {string} path      - Dot-notation path to this node
-   * @param {Function} onToggle - Called when a branch node is toggled
-   * @param {Function} onSelect - Called when any node is clicked
+   * Recursively collapses all nodes in a subtree below a given path.
+   * The node at rootPath itself is NOT collapsed — only its descendants.
    */
-  const buildRow = (key, value, depth, path, onToggle, onSelect) => {
+  const collapseSubtree = (value, rootPath) => {
+    const type = getType(value);
+    if (type !== 'object' && type !== 'array') return;
+
+    if (type === 'object') {
+      Object.entries(value).forEach(([key, childValue]) => {
+        const childPath = rootPath ? `${rootPath}.${key}` : key;
+        const childType = getType(childValue);
+        if (childType === 'object' || childType === 'array') {
+          collapsedPaths.add(childPath);
+          collapseSubtree(childValue, childPath);
+        }
+      });
+    } else {
+      value.forEach((childValue, index) => {
+        const childPath = `${rootPath}[${index}]`;
+        const childType = getType(childValue);
+        if (childType === 'object' || childType === 'array') {
+          collapsedPaths.add(childPath);
+          collapseSubtree(childValue, childPath);
+        }
+      });
+    }
+  };
+
+  /**
+   * Recursively expands all nodes in a subtree below a given path.
+   * Removes all descendant paths from collapsedPaths.
+   */
+  const expandSubtree = (value, rootPath) => {
+    const type = getType(value);
+    if (type !== 'object' && type !== 'array') return;
+
+    collapsedPaths.delete(rootPath);
+
+    if (type === 'object') {
+      Object.entries(value).forEach(([key, childValue]) => {
+        const childPath = rootPath ? `${rootPath}.${key}` : key;
+        expandSubtree(childValue, childPath);
+      });
+    } else {
+      value.forEach((childValue, index) => {
+        expandSubtree(childValue, `${rootPath}[${index}]`);
+      });
+    }
+  };
+
+  // Focus management
+
+  const setFocusedRow = (container, path) => {
+    // Clear previous
+    container
+      .querySelectorAll('.tree-row--focused')
+      .forEach(r => r.classList.remove('tree-row--focused'));
+
+    focusedPath = path;
+
+    if (path === null) return;
+
+    const row = container.querySelector(`[data-path="${CSS.escape(path)}"]`);
+    if (row) {
+      row.classList.add('tree-row--focused');
+      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  };
+
+  /**
+   * Returns all visible row elements in DOM order.
+   * Used by arrow key navigation to find adjacent rows.
+   */
+  const getVisibleRows = container =>
+    Array.from(container.querySelectorAll('.tree-row'));
+
+  // Row builder
+
+  const buildRow = (
+    key,
+    value,
+    depth,
+    path,
+    onToggle,
+    onSelect,
+    onDoubleClick
+  ) => {
     const type = getType(value);
     const isBranch = type === 'object' || type === 'array';
     const isCollapsed = collapsedPaths.has(path);
 
     const row = document.createElement('div');
-    row.className = 'tree-row';
+    row.className = `tree-row${isBranch ? ' tree-row--branch' : ''}`;
     row.setAttribute('style', getIndentStyle(depth));
     row.setAttribute('data-path', path);
+    row.setAttribute('data-depth', depth);
+    row.setAttribute('data-branch', isBranch ? 'true' : 'false');
     row.setAttribute('role', 'treeitem');
-    row.setAttribute(
-      'aria-expanded',
-      isBranch ? String(!isCollapsed) : undefined
-    );
 
-    // Toggle or placeholder
+    if (isBranch) {
+      row.setAttribute('aria-expanded', String(!isCollapsed));
+    }
+
+    // Toggle (chevron)
     if (isBranch) {
       const toggle = document.createElement('span');
       toggle.className = `tree-row__toggle${isCollapsed ? ' tree-row__toggle--collapsed' : ''}`;
-      toggle.setAttribute('aria-label', isCollapsed ? 'Expand' : 'Collapse');
       toggle.appendChild(createChevron());
-
-      toggle.addEventListener('click', e => {
-        e.stopPropagation();
-        onToggle(path, row);
-      });
-
       row.appendChild(toggle);
     } else {
-      const placeholder = document.createElement('span');
-      placeholder.className = 'tree-row__toggle-placeholder';
-      row.appendChild(placeholder);
+      row.appendChild(
+        Object.assign(document.createElement('span'), {
+          className: 'tree-row__toggle-placeholder',
+        })
+      );
     }
 
     // Key
@@ -130,117 +185,155 @@ const createRenderer = () => {
       const closeBracket = type === 'object' ? '}' : ']';
       const childCount =
         type === 'object' ? Object.keys(value).length : value.length;
-      const childLabel =
+      const childLabel = `${childCount} ${
         type === 'object'
-          ? `${childCount} ${childCount === 1 ? 'key' : 'keys'}`
-          : `${childCount} ${childCount === 1 ? 'item' : 'items'}`;
+          ? childCount === 1
+            ? 'key'
+            : 'keys'
+          : childCount === 1
+            ? 'item'
+            : 'items'
+      }`;
 
       if (isCollapsed) {
-        // Collapsed: show bracket + count badge + close bracket
         row.appendChild(
           createSpan('tree-row__value value--bracket', openBracket)
         );
-
         const badge = document.createElement('span');
         badge.className = 'tree-row__count';
         badge.textContent = childLabel;
         row.appendChild(badge);
-
         row.appendChild(
           createSpan('tree-row__value value--bracket', closeBracket)
         );
       } else {
-        // Expanded: show only open bracket (children render below)
         row.appendChild(
           createSpan('tree-row__value value--bracket', openBracket)
         );
       }
 
-      // Type badge
       row.appendChild(createSpan('tree-row__type', type));
     } else {
-      // Leaf node: show the actual value
-      const valueClass = getValueClass(type, value);
-      const valueText = formatValue(type, value);
-      row.appendChild(createSpan(valueClass, valueText));
-
-      // Type badge
+      row.appendChild(
+        createSpan(getValueClass(type, value), formatValue(type, value))
+      );
       row.appendChild(createSpan('tree-row__type', type));
     }
 
-    // Click to select and copy path
-    row.addEventListener('click', () => onSelect(path, row));
+    // Events
+
+    // Single click on a branch row: toggle collapse
+    // Single click on a leaf row: select and copy path
+    row.addEventListener('click', e => {
+      e.stopPropagation();
+
+      if (isBranch) {
+        onToggle(path);
+      } else {
+        onSelect(path, row);
+      }
+    });
+
+    // Double-click on a branch row: recursively expand subtree
+    if (isBranch) {
+      row.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        onDoubleClick(path);
+      });
+    }
 
     return row;
   };
 
-  /**
-   * Builds a closing bracket row for an object or array.
-   */
   const buildClosingRow = (type, depth) => {
-    const bracket = type === 'object' ? '}' : ']';
     const row = document.createElement('div');
     row.className = 'tree-row tree-row--closing';
     row.setAttribute('style', getIndentStyle(depth));
-
-    const placeholder = document.createElement('span');
-    placeholder.className = 'tree-row__toggle-placeholder';
-    row.appendChild(placeholder);
-
-    row.appendChild(createSpan('tree-row__value value--bracket', bracket));
+    row.appendChild(
+      Object.assign(document.createElement('span'), {
+        className: 'tree-row__toggle-placeholder',
+      })
+    );
+    row.appendChild(
+      createSpan(
+        'tree-row__value value--bracket',
+        type === 'object' ? '}' : ']'
+      )
+    );
     return row;
   };
 
-  // Public API
+  // Public: render
 
-  /**
-   * Renders a parsed JSON value into a container element.
-   * Clears the container before rendering.
-   *
-   * @param {HTMLElement} container  - The element to render into
-   * @param {*}           data       - The parsed JSON value
-   * @param {Function}    onSelect   - Called with (path) when a node is clicked
-   */
   const render = (container, data, onSelect) => {
     container.innerHTML = '';
+    onSelectCallback = onSelect;
 
-    /**
-     * Recursive render function.
-     * Builds DOM nodes for value and all its descendants.
-     */
+    const onToggle = togglePath => {
+      if (collapsedPaths.has(togglePath)) {
+        collapsedPaths.delete(togglePath);
+      } else {
+        collapsedPaths.add(togglePath);
+      }
+      render(container, data, onSelect);
+      setFocusedRow(container, togglePath);
+    };
+
+    const handleSelect = (selectedPath, rowEl) => {
+      container
+        .querySelectorAll('.tree-row--selected')
+        .forEach(r => r.classList.remove('tree-row--selected'));
+      rowEl.classList.add('tree-row--selected');
+      setFocusedRow(container, selectedPath);
+      onSelect(selectedPath);
+    };
+
+    const onDoubleClick = dblPath => {
+      // If collapsed: expand the node then recursively expand its children
+      // If expanded: recursively collapse all children (but keep the node open)
+      if (collapsedPaths.has(dblPath)) {
+        expandSubtree(data, dblPath);
+      } else {
+        collapseSubtree(data, dblPath);
+      }
+      render(container, data, onSelect);
+
+      // Flash feedback on the double-clicked row
+      const row = container.querySelector(
+        `[data-path="${CSS.escape(dblPath)}"]`
+      );
+      if (row) {
+        row.classList.add('tree-row--flash');
+        row.addEventListener(
+          'animationend',
+          () => {
+            row.classList.remove('tree-row--flash');
+          },
+          { once: true }
+        );
+      }
+
+      setFocusedRow(container, dblPath);
+    };
+
     const renderNode = (key, value, depth, path) => {
       const type = getType(value);
       const isBranch = type === 'object' || type === 'array';
       const isCollapsed = collapsedPaths.has(path);
 
-      const onToggle = togglePath => {
-        if (collapsedPaths.has(togglePath)) {
-          collapsedPaths.delete(togglePath);
-        } else {
-          collapsedPaths.add(togglePath);
-        }
-        // Re-render everything — simple and correct for Day 8.
-        // Day 15 will optimize this with targeted DOM updates.
-        render(container, data, onSelect);
-      };
-
-      const handleSelect = (selectedPath, rowEl) => {
-        // Clear previous selection
-        container
-          .querySelectorAll('.tree-row--selected')
-          .forEach(r => r.classList.remove('tree-row--selected'));
-        rowEl.classList.add('tree-row--selected');
-        onSelect(selectedPath);
-      };
-
-      // Render this node's row
-      const row = buildRow(key, value, depth, path, onToggle, handleSelect);
+      const row = buildRow(
+        key,
+        value,
+        depth,
+        path,
+        onToggle,
+        handleSelect,
+        onDoubleClick
+      );
       container.appendChild(row);
 
-      // If collapsed or not a branch, we are done
       if (!isBranch || isCollapsed) return;
 
-      // Render children
       if (type === 'object') {
         Object.entries(value).forEach(([childKey, childValue]) => {
           const childPath = path ? `${path}.${childKey}` : childKey;
@@ -248,30 +341,144 @@ const createRenderer = () => {
         });
       } else {
         value.forEach((childValue, index) => {
-          const childPath = `${path}[${index}]`;
-          renderNode(String(index), childValue, depth + 1, childPath);
+          renderNode(String(index), childValue, depth + 1, `${path}[${index}]`);
         });
       }
 
-      // Closing bracket
       container.appendChild(buildClosingRow(type, depth));
     };
 
-    // Start the recursion from the root
     renderNode('', data, 0, '');
+
+    // Restore focus to the previously focused row after re-render
+    if (focusedPath !== null) {
+      setFocusedRow(container, focusedPath);
+    }
   };
 
+  // Public: keyboard navigation
+
   /**
-   * Collapses all nodes below a given depth.
-   * depth=0 collapses everything. depth=1 collapses only top-level children.
+   * Handles arrow key navigation on the tree container.
+   * Called from main.js via a keydown listener on the container.
+   *
+   * ArrowDown  — move focus to next visible row
+   * ArrowUp    — move focus to previous visible row
+   * ArrowRight — expand focused branch node (or move to first child if open)
+   * ArrowLeft  — collapse focused branch node (or move to parent if already collapsed)
+   * Enter      — select focused row (copy path)
+   * Space      — toggle focused branch node
+   */
+  const handleKeyNav = (e, container, data, onSelect) => {
+    const rows = getVisibleRows(container);
+    if (rows.length === 0) return;
+
+    const currentRow =
+      focusedPath !== null
+        ? container.querySelector(`[data-path="${CSS.escape(focusedPath)}"]`)
+        : null;
+    const currentIndex = currentRow ? rows.indexOf(currentRow) : -1;
+
+    switch (e.key) {
+      case 'ArrowDown': {
+        e.preventDefault();
+        const nextIndex = Math.min(currentIndex + 1, rows.length - 1);
+        const nextPath = rows[nextIndex]?.dataset.path ?? null;
+        setFocusedRow(container, nextPath);
+        break;
+      }
+
+      case 'ArrowUp': {
+        e.preventDefault();
+        const prevIndex = Math.max(currentIndex - 1, 0);
+        const prevPath = rows[prevIndex]?.dataset.path ?? null;
+        setFocusedRow(container, prevPath);
+        break;
+      }
+
+      case 'ArrowRight': {
+        e.preventDefault();
+        if (!currentRow) break;
+        const isBranch = currentRow.dataset.branch === 'true';
+        if (!isBranch) break;
+
+        if (collapsedPaths.has(focusedPath)) {
+          // Expand
+          collapsedPaths.delete(focusedPath);
+          render(container, data, onSelect);
+        } else {
+          // Already open — move to first child
+          const nextRow = rows[currentIndex + 1];
+          if (nextRow) setFocusedRow(container, nextRow.dataset.path);
+        }
+        break;
+      }
+
+      case 'ArrowLeft': {
+        e.preventDefault();
+        if (!currentRow) break;
+        const isBranch = currentRow.dataset.branch === 'true';
+
+        if (isBranch && !collapsedPaths.has(focusedPath)) {
+          // Collapse
+          collapsedPaths.add(focusedPath);
+          render(container, data, onSelect);
+        } else {
+          // Move to parent row
+          const currentDepth = parseInt(currentRow.dataset.depth, 10);
+          const parentRow = rows
+            .slice(0, currentIndex)
+            .reverse()
+            .find(r => parseInt(r.dataset.depth, 10) < currentDepth);
+          if (parentRow) setFocusedRow(container, parentRow.dataset.path);
+        }
+        break;
+      }
+
+      case 'Enter': {
+        e.preventDefault();
+        if (!currentRow || !focusedPath) break;
+        // Select: copy path
+        container
+          .querySelectorAll('.tree-row--selected')
+          .forEach(r => r.classList.remove('tree-row--selected'));
+        currentRow.classList.add('tree-row--selected');
+        if (onSelectCallback) onSelectCallback(focusedPath);
+        break;
+      }
+
+      case ' ': {
+        e.preventDefault();
+        if (!currentRow) break;
+        const isBranch = currentRow.dataset.branch === 'true';
+        if (!isBranch) break;
+        if (collapsedPaths.has(focusedPath)) {
+          collapsedPaths.delete(focusedPath);
+        } else {
+          collapsedPaths.add(focusedPath);
+        }
+        render(container, data, onSelect);
+        break;
+      }
+    }
+  };
+
+  //  Public: collapse to depth
+
+  /**
+   * Collapses all nodes at depth >= maxDepth.
+   * depth=0 means show only the root node collapsed.
+   * depth=1 means show top-level keys but collapse their children.
    */
   const collapseToDepth = (data, maxDepth, currentDepth = 0, path = '') => {
     const type = getType(data);
     if (type !== 'object' && type !== 'array') return;
+
     if (currentDepth >= maxDepth) {
-      collapsedPaths.add(path);
+      if (path !== '') collapsedPaths.add(path);
       return;
     }
+
     if (type === 'object') {
       Object.entries(data).forEach(([key, value]) => {
         const childPath = path ? `${path}.${key}` : key;
@@ -284,7 +491,23 @@ const createRenderer = () => {
     }
   };
 
-  const clearCollapsed = () => collapsedPaths.clear();
+  const clearCollapsed = () => {
+    collapsedPaths.clear();
+    focusedPath = null;
+  };
 
-  return { render, collapseToDepth, clearCollapsed };
+  const expandAll = () => collapsedPaths.clear();
+
+  const collapseAll = data => {
+    collapseToDepth(data, 0);
+  };
+
+  return {
+    render,
+    handleKeyNav,
+    collapseToDepth,
+    collapseAll,
+    expandAll,
+    clearCollapsed,
+  };
 };
