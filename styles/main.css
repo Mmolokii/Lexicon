@@ -868,3 +868,136 @@ body {
   border-color: var(--accent-border);
   color: var(--accent);
 }
+
+/* Output toolbar*/
+.output-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  height: 36px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.output-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.output-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.output-toolbar__label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+/* Depth buttons */
+.depth-btns {
+  display: flex;
+  gap: 2px;
+}
+
+.depth-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 6px;
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+.depth-btn:hover {
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+.depth-btn--active {
+  background: var(--accent-subtle);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+/* Output action buttons */
+.output-action-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.output-action-btn:hover {
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+/* Tree row keyboard focus */
+.tree-container:focus {
+  outline: none;
+  /* focus managed via .tree-row--focused */
+}
+
+.tree-row--focused {
+  background: var(--bg-row-hover);
+  outline: none;
+}
+
+.tree-row--focused::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Branch rows show a pointer cursor on the whole row */
+.tree-row--branch {
+  cursor: pointer;
+}
+
+/* Double-click flash feedback */
+@keyframes rowFlash {
+  0% {
+    background: var(--accent-subtle);
+  }
+
+  100% {
+    background: transparent;
+  }
+}
+
+.tree-row--flash {
+  animation: rowFlash 300ms ease forwards;
+}
