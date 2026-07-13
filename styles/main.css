@@ -1001,3 +1001,93 @@ body {
 .tree-row--flash {
   animation: rowFlash 300ms ease forwards;
 }
+
+/* Search bar */
+.search-bar {
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  background: var(--bg-surface);
+}
+
+.search-bar__inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 36px;
+}
+
+.search-bar__icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.search-bar__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  caret-color: var(--accent);
+  min-width: 0;
+}
+
+.search-bar__input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-bar__count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.search-bar__count--no-results {
+  color: var(--json-bool-false);
+}
+
+.search-bar__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.search-bar__close:hover {
+  color: var(--text-primary);
+}
+
+/* Search match highlighting */
+
+/* Dimmed rows — no match */
+.tree-row--dimmed {
+  opacity: 0.25;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+/* Matched rows — full opacity */
+.tree-row--matched {
+  opacity: 1;
+}
+
+/* Ancestor rows of matches — full opacity but not highlighted */
+.tree-row--ancestor {
+  opacity: 1;
+}
+
+/* Highlighted substring within a matched row */
+.search-highlight {
+  background: #854d0e40;
+  color: #fcd34d;
+  border-radius: 2px;
+  padding: 0 1px;
+}
