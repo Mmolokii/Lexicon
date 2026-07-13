@@ -1,6 +1,8 @@
 let currentData = null;
 let currentRaw = '';
 let toastTimer = null;
+let isSearchActive = false;
+let currentQuery = '';
 
 // DOM refs
 const ELEMENTS = {
@@ -40,6 +42,10 @@ const ELEMENTS = {
   btnExpandAll: document.getElementById('btn-expand-all'),
   btnCollapseAll: document.getElementById('btn-collapse-all'),
   depthBtns: document.querySelectorAll('.depth-btn'),
+  searchBar: document.getElementById('search-bar'),
+  searchInput: document.getElementById('search-input'),
+  searchCount: document.getElementById('search-count'),
+  btnSearchClose: document.getElementById('btn-search-close'),
 };
 
 const onSelectHandler = path => {
@@ -139,6 +145,72 @@ const setActiveDepthBtn = depth => {
   });
 };
 
+// Search helpers
+const openSearch = () => {
+  if (!currentData) return;
+  isSearchActive = true;
+  ELEMENTS.searchBar.hidden = false;
+  ELEMENTS.searchInput.focus();
+  ELEMENTS.searchInput.select();
+};
+
+const closeSearch = () => {
+  isSearchActive = false;
+  currentQuery = '';
+  ELEMENTS.searchBar.hidden = true;
+  ELEMENTS.searchInput.value = '';
+  ELEMENTS.searchCount.hidden = true;
+
+  // Clear all search visual state from the tree
+  const container = ELEMENTS.treeContainer;
+  clearHighlights(container);
+  container
+    .querySelectorAll(
+      '.tree-row--matched, .tree-row--dimmed, .tree-row--ancestor'
+    )
+    .forEach(row => {
+      row.classList.remove(
+        'tree-row--matched',
+        'tree-row--dimmed',
+        'tree-row--ancestor'
+      );
+    });
+};
+
+const runSearch = query => {
+  currentQuery = query;
+
+  if (!currentData) return;
+
+  // Before applying search visuals, expand any collapsed ancestors
+  // of matching nodes so matches are not hidden inside collapsed branches
+  if (query.trim()) {
+    const pathsToExpand = getPathsToExpand(query, currentData);
+    if (pathsToExpand.size > 0) {
+      renderer.expandPaths(pathsToExpand);
+      renderer.render(ELEMENTS.treeContainer, currentData, onSelectHandler);
+    }
+  }
+
+  const { matchCount } = applySearch(
+    query,
+    currentData,
+    ELEMENTS.treeContainer
+  );
+
+  // Update match counter
+  if (query.trim()) {
+    ELEMENTS.searchCount.hidden = false;
+    ELEMENTS.searchCount.textContent = `${matchCount} match${matchCount !== 1 ? 'es' : ''}`;
+    ELEMENTS.searchCount.classList.toggle(
+      'search-bar__count--no-results',
+      matchCount === 0
+    );
+  } else {
+    ELEMENTS.searchCount.hidden = true;
+  }
+};
+
 // Fetch status UI
 const showFetchStatus = (state, content) => {
   // state: 'loading' | 'success' | 'error'
@@ -232,14 +304,9 @@ const loadFromUrl = async url => {
   currentData = result.data;
   currentRaw = result.raw;
 
+  closeSearch();
   renderer.clearCollapsed();
-  renderer.render(ELEMENTS.treeContainer, currentData, path => {
-    showPathInStatus(path);
-    copyToClipboard(path || '(root)').then(success => {
-      if (success) showToast('Path copied', path || '(root)');
-    });
-  });
-
+  renderer.render(ELEMENTS.treeContainer, currentData, onSelectHandler); // use named handler
   showTree();
   updateStatus(currentData, currentRaw);
 };
@@ -272,8 +339,8 @@ const parseAndRender = () => {
   currentData = result.data;
   currentRaw = result.raw;
 
+  closeSearch();
   renderer.clearCollapsed();
-
   renderer.render(ELEMENTS.treeContainer, currentData, onSelectHandler);
 
   showTree();
@@ -441,6 +508,13 @@ document.addEventListener('keydown', e => {
 
   // Escape — clear selection
   if (e.key === 'Escape') {
+    // if search is open, close it first
+    if (isSearchActive) {
+      closeSearch();
+      return;
+    }
+
+    // Otherwise clear the node
     ELEMENTS.treeContainer
       .querySelectorAll('.tree-row--selected')
       .forEach(r => r.classList.remove('tree-row--selected'));
@@ -460,6 +534,50 @@ document.addEventListener('keydown', e => {
     switchInputTab('paste');
     return;
   }
+
+  // cmd + F — open search
+  if (cmdOrCtrl && e.key === 'f') {
+    e.preventDefault();
+    openSearch();
+    return;
+  }
+
+  // cmd + shift + A — expand all
+  if (cmdOrCtrl && e.shiftKey && e.key === 'A') {
+    e.preventDefault();
+    if (currentData) {
+      renderer.expandAll();
+      renderer.render(ELEMENTS.treeContainer, currentData, onSelectHandler);
+      setActiveDepthBtn(-1);
+    }
+    return;
+  }
+
+  // cmd + shift + 0 — collapse all
+  if (cmdOrCtrl && e.shiftKey && e.key === '0') {
+    e.preventDefault();
+    if (currentData) {
+      renderer.collapseAll(currentData);
+      renderer.render(ELEMENTS.treeContainer, currentData, onSelectHandler);
+      setActiveDepthBtn(0);
+    }
+    return;
+  }
+});
+
+// Search
+
+const debouncedSearch = debounce(query => runSearch(query), 150);
+
+ELEMENTS.searchInput.addEventListener('input', e => {
+  debouncedSearch(e.target.value);
+});
+
+ELEMENTS.btnSearchClose.addEventListener('click', closeSearch);
+
+// Close search when clicking outside the search bar
+ELEMENTS.treeContainer.addEventListener('click', () => {
+  ELEMENTS.treeContainer.focus({ preventScroll: true });
 });
 
 // Pane resizer
