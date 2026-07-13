@@ -502,12 +502,21 @@ const createRenderer = () => {
     collapseToDepth(data, 0);
   };
 
+  /**
+   * Removes a set of paths from collapsedPaths.
+   * Ussed by search to expand ancestors of matching nodes.
+   */
+  const expandPaths = paths => {
+    paths.forEach(path => collapsedPaths.delete(path));
+  };
+
   return {
     render,
     handleKeyNav,
     collapseToDepth,
     collapseAll,
     expandAll,
+    expandPaths,
     clearCollapsed,
   };
 };
