@@ -56,58 +56,25 @@ const createRenderer = () => {
   // Subtree operations
 
   /**
-   * Recursively collapses all nodes in a subtree below a given path.
-   * The node at rootPath itself is NOT collapsed — only its descendants.
+   * Public wrapper: recursively expands the subtree at a given path.
+   * Needs the root data to walk from.
    */
-  const collapseSubtree = (value, rootPath) => {
-    const type = getType(value);
-    if (type !== 'object' && type !== 'array') return;
-
-    if (type === 'object') {
-      Object.entries(value).forEach(([key, childValue]) => {
-        const childPath = rootPath ? `${rootPath}.${key}` : key;
-        const childType = getType(childValue);
-        if (childType === 'object' || childType === 'array') {
-          collapsedPaths.add(childPath);
-          collapseSubtree(childValue, childPath);
-        }
-      });
-    } else {
-      value.forEach((childValue, index) => {
-        const childPath = `${rootPath}[${index}]`;
-        const childType = getType(childValue);
-        if (childType === 'object' || childType === 'array') {
-          collapsedPaths.add(childPath);
-          collapseSubtree(childValue, childPath);
-        }
-      });
-    }
+  const expandSubtreeAt = (data, path) => {
+    const value = getValueAtPath(data, path);
+    if (value === undefined) return;
+    expandSubtree(value, path);
   };
 
   /**
-   * Recursively expands all nodes in a subtree below a given path.
-   * Removes all descendant paths from collapsedPaths.
+   * Public wrapper: recursively collapses the subtree at a given path.
    */
-  const expandSubtree = (value, rootPath) => {
-    const type = getType(value);
-    if (type !== 'object' && type !== 'array') return;
-
-    collapsedPaths.delete(rootPath);
-
-    if (type === 'object') {
-      Object.entries(value).forEach(([key, childValue]) => {
-        const childPath = rootPath ? `${rootPath}.${key}` : key;
-        expandSubtree(childValue, childPath);
-      });
-    } else {
-      value.forEach((childValue, index) => {
-        expandSubtree(childValue, `${rootPath}[${index}]`);
-      });
-    }
+  const collapseSubtreeAt = (data, path) => {
+    const value = getValueAtPath(data, path);
+    if (value === undefined) return;
+    collapseSubtree(value, path);
   };
 
   // Focus management
-
   const setFocusedRow = (container, path) => {
     // Clear previous
     container
@@ -517,6 +484,8 @@ const createRenderer = () => {
     collapseAll,
     expandAll,
     expandPaths,
+    expandSubtreeAt,
+    collapseSubtreeAt,
     clearCollapsed,
   };
 };
