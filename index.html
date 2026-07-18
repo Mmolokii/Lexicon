@@ -223,6 +223,26 @@
     </div>
   </footer>
 
+  <!-- Context menu -->
+  <div class="context-menu" id="context-menu" role="menu" hidden>
+    <button class="context-menu__item" role="menuitem" data-action="copy-path">
+      Copy path
+    </button>
+    <button class="context-menu__item" role="menuitem" data-action="copy-value">
+      Copy value
+    </button>
+    <button class="context-menu__item" role="menuitem" data-action="copy-subtree">
+      Copy subtree as JSON
+    </button>
+    <div class="context-menu__divider" role="separator"></div>
+    <button class="context-menu__item" role="menuitem" data-action="expand-subtree">
+      Expand subtree
+    </button>
+    <button class="context-menu__item" role="menuitem" data-action="collapse-subtree">
+      Collapse subtree
+    </button>
+  </div>
+
   <!-- Toast -->
   <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden>
     <span class="toast__check">✓</span>
