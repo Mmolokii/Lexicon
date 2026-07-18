@@ -103,3 +103,32 @@ const debounce = (fn, delay) => {
     timer = setTimeout(() => fn(...args), delay);
   };
 };
+
+/**
+ * Retrieves the value at a dot-notation path within a parsed JSON value.
+ * Handles both object keys ("address.city") and array indices ("orders[0].id").
+ *
+ * Returns undefined if the path does not exist.
+ *
+ * Examples:
+ *   getValueAtPath(data, 'address.city')   → 'Portland'
+ *   getValueAtPath(data, 'orders[0].id')   → 'ord_8821'
+ *   getValueAtPath(data, '')               → data (root)
+ */
+const getValueAtPath = (data, path) => {
+  if (path === '') return data;
+
+  // Convert bracket notation to dot segments:
+  // "orders[0].id" → ["orders", "0", "id"]
+  const segments = path
+    .replace(/\[(\d+)\]/g, '.$1')
+    .split('.')
+    .filter(Boolean);
+
+  let current = data;
+  for (const segment of segments) {
+    if (current === null || current === undefined) return undefined;
+    current = current[segment];
+  }
+  return current;
+};
