@@ -3,6 +3,7 @@ let currentRaw = '';
 let toastTimer = null;
 let isSearchActive = false;
 let currentQuery = '';
+let contextMenuPath = null; // node path context menu
 
 // DOM refs
 const ELEMENTS = {
@@ -46,6 +47,8 @@ const ELEMENTS = {
   searchInput: document.getElementById('search-input'),
   searchCount: document.getElementById('search-count'),
   btnSearchClose: document.getElementById('btn-search-close'),
+  contextMenu: document.getElementById('context-menu'),
+  contextMenuItems: document.querySelectorAll('.context-menu__item'),
 };
 
 const onSelectHandler = path => {
@@ -209,6 +212,97 @@ const runSearch = query => {
   } else {
     ELEMENTS.searchCount.hidden = true;
   }
+};
+
+// Context Menu
+const openContextMenu = (x, y, path) => {
+  contextMenuPath = path;
+
+  const menu = ELEMENTS.contextMenu;
+  menu.hidden = false;
+
+  // Position at cursor, but keep inside the viewport
+  const menuRect = menu.getBoundingClientRect();
+  const maxX = window.innerWidth - menuRect.width - 8;
+  const maxY = window.innerHeight - menuRect.height - 8;
+
+  menu.style.left = `${Math.min(x, maxX)}px`;
+  menu.style.top = `${Math.min(y, maxY)}px`;
+
+  // Disable subtree actions on leaf nodes
+  const value = getValueAtPath(currentData, path);
+  const type = getType(value);
+  const isBranch = type === 'object' || type === 'array';
+
+  ELEMENTS.contextMenuItems.forEach(item => {
+    const isSubtreeAction =
+      item.dataset.action === 'expand-subtree' ||
+      item.dataset.action === 'collapse-subtree';
+    item.classList.toggle(
+      'context-menu__item--disabled',
+      isSubtreeAction && !isBranch
+    );
+  });
+};
+
+const closeContextMenu = () => {
+  ELEMENTS.contextMenu.hidden = true;
+  contextMenuPath = null;
+};
+
+const handleContextAction = async action => {
+  if (contextMenuPath === null || !currentData) return;
+
+  const path = contextMenuPath;
+  const value = getValueAtPath(currentData, path);
+
+  switch (action) {
+    case 'copy-path': {
+      const success = await copyToClipboard(path || '(root)');
+      if (success) showToast('Path copied', path || '(root)');
+      break;
+    }
+
+    case 'copy-value': {
+      // Primitives copy as their string form, no quotes
+      const type = getType(value);
+      const text =
+        type === 'object' || type === 'array'
+          ? JSON.stringify(value)
+          : String(value);
+      const success = await copyToClipboard(text);
+      if (success)
+        showToast(
+          'Value copied',
+          text.length > 60 ? `${text.slice(0, 60)}...` : text
+        );
+      break;
+    }
+
+    case 'copy-subtree': {
+      const json = JSON.stringify(value, null, 2);
+      const success = await copyToClipboard(json);
+      if (success) {
+        const preview = `${countNodes(value)} nodes`;
+        showToast('Subtree copied as JSON', preview);
+      }
+      break;
+    }
+
+    case 'expand-subtree': {
+      renderer.expandSubtreeAt(currentData, path);
+      renderer.render(ELEMENTS.treeContainer, currentData, onSelectHandler);
+      break;
+    }
+
+    case 'collapse-subtree': {
+      renderer.collapseSubtreeAt(currentData, path);
+      renderer.render(ELEMENTS.treeContainer, currentData, onSelectHandler);
+      break;
+    }
+  }
+
+  closeContextMenu();
 };
 
 // Fetch status UI
@@ -508,7 +602,12 @@ document.addEventListener('keydown', e => {
 
   // Escape — clear selection
   if (e.key === 'Escape') {
-    // if search is open, close it first
+    // Close context menu first if open
+    if (!ELEMENTS.contextMenu.hidden) {
+      closeContextMenu();
+      return;
+    }
+    // Then search
     if (isSearchActive) {
       closeSearch();
       return;
@@ -563,6 +662,36 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
+});
+
+// Context menu listeners
+// Right-click on a tree row opens the context menu
+ELEMENTS.treeContainer.addEventListener('contextmenu', e => {
+  const row = e.target.closest('.tree-row');
+  if (!row || !row.dataset.path === undefined) return;
+
+  e.preventDefault();
+  openContextMenu(e.clientX, e.clientY, row.dataset.path);
+});
+
+// Menu item clicks
+ELEMENTS.contextMenuItems.forEach(item => {
+  item.addEventListener('click', () => {
+    handleContextAction(item.dataset.action);
+  });
+});
+
+// Close the menu on any click elsewhere
+document.addEventListener('click', e => {
+  if (!ELEMENTS.contextMenu.hidden && !e.target.closest('.context-menu')) {
+    closeContextMenu();
+  }
+});
+
+// Close the menu on Escape (add to the existing Escape handler)
+// and on scroll
+ELEMENTS.treeContainer.addEventListener('scroll', closeContextMenu, {
+  passive: true,
 });
 
 // Search
