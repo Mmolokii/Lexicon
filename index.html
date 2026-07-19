@@ -12,6 +12,7 @@
 </head>
 
 <body>
+  <a class="skip-link" href="#tree-container">Skip to JSON tree</a>
 
   <!-- Header -->
   <header class="header" role="banner">
@@ -184,7 +185,8 @@
           </svg>
           <input type="text" id="search-input" class="search-bar__input" placeholder="Search keys and values..."
             spellcheck="false" autocomplete="off" aria-label="Search JSON tree" aria-controls="tree-container" />
-          <span class="search-bar__count" id="search-count" hidden></span>
+          <span class="search-bar__count" id="search-count" role="status" aria-live="polite" aria-atomic="true" hidden>
+          </span>
           <button class="search-bar__close" id="btn-search-close" aria-label="Close search">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -205,7 +207,8 @@
       </div>
 
       <!-- Tree container -->
-      <div class="tree-container" id="tree-container" role="tree" aria-label="JSON tree" tabindex="0" hidden></div>
+      <div class="tree-container" id="tree-container" role="tree" aria-label="JSON tree" aria-activedescendant=""
+        tabindex="0" hidden></div>
 
     </section>
 
@@ -222,6 +225,136 @@
       <span class="status-chip status-chip--path" id="status-path" hidden></span>
     </div>
   </footer>
+
+  <!-- Keyboard shortcuts overlay -->
+  <div class="overlay-backdrop" id="overlay-backdrop" hidden></div>
+
+  <div class="shortcuts-overlay" id="shortcuts-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"
+    hidden>
+    <div class="shortcuts-overlay__header">
+      <h2 class="shortcuts-overlay__title">Keyboard Shortcuts</h2>
+      <button class="shortcuts-overlay__close" id="btn-shortcuts-close" aria-label="Close shortcuts overlay">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="shortcuts-overlay__body">
+
+      <div class="shortcut-group">
+        <p class="shortcut-group__label">Parsing</p>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Parse JSON</span>
+          <span class="shortcut-row__keys">
+            <kbd>⌘</kbd><kbd>↵</kbd>
+          </span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Format JSON</span>
+          <span class="shortcut-row__keys">
+            <kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd>
+          </span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Clear input</span>
+          <span class="shortcut-row__keys">
+            <kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd>
+          </span>
+        </div>
+      </div>
+
+      <div class="shortcut-group">
+        <p class="shortcut-group__label">Navigation</p>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Open search</span>
+          <span class="shortcut-row__keys">
+            <kbd>⌘</kbd><kbd>F</kbd>
+          </span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Expand all</span>
+          <span class="shortcut-row__keys">
+            <kbd>⌘</kbd><kbd>⇧</kbd><kbd>A</kbd>
+          </span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Collapse all</span>
+          <span class="shortcut-row__keys">
+            <kbd>⌘</kbd><kbd>⇧</kbd><kbd>0</kbd>
+          </span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Navigate tree</span>
+          <span class="shortcut-row__keys">
+            <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd>
+          </span>
+        </div>
+      </div>
+
+      <div class="shortcut-group">
+        <p class="shortcut-group__label">Actions</p>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Copy path</span>
+          <span class="shortcut-row__keys">
+            <kbd>↵</kbd>
+          </span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Toggle node</span>
+          <span class="shortcut-row__keys">
+            <kbd>Space</kbd>
+          </span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Context menu</span>
+          <span class="shortcut-row__keys">
+            <kbd>Right-click</kbd>
+          </span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Close / dismiss</span>
+          <span class="shortcut-row__keys">
+            <kbd>Esc</kbd>
+          </span>
+        </div>
+      </div>
+
+      <div class="shortcut-group">
+        <p class="shortcut-group__label">App</p>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Toggle theme</span>
+          <span class="shortcut-row__keys">
+            <kbd>⌘</kbd><kbd>⇧</kbd><kbd>L</kbd>
+          </span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">URL input mode</span>
+          <span class="shortcut-row__keys">
+            <kbd>⌘</kbd><kbd>⇧</kbd><kbd>U</kbd>
+          </span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">Paste input mode</span>
+          <span class="shortcut-row__keys">
+            <kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd>
+          </span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-row__action">This overlay</span>
+          <span class="shortcut-row__keys">
+            <kbd>?</kbd>
+          </span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="shortcuts-overlay__footer">
+      <span>Press <kbd class="kbd-inline">?</kbd> to open this at any time</span>
+    </div>
+  </div>
 
   <!-- Context menu -->
   <div class="context-menu" id="context-menu" role="menu" hidden>
@@ -256,6 +389,7 @@
   <script src="src/parser.js"></script>
   <script src="src/fetcher.js"></script>
   <script src="src/search.js"></script>
+  <script src="src/focus-trap.js"></script>
   <script src="src/renderer.js"></script>
   <script src="src/main.js"></script>
 </body>
