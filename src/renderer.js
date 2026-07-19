@@ -83,12 +83,18 @@ const createRenderer = () => {
 
     focusedPath = path;
 
-    if (path === null) return;
+    if (path === null) {
+      container.setAttribute('aria-activedescendant', '');
+      return;
+    }
 
     const row = container.querySelector(`[data-path="${CSS.escape(path)}"]`);
     if (row) {
       row.classList.add('tree-row--focused');
       row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+      // Keep aria-activedescendant pointing at the focused row
+      container.setAttribute('aria-activedescendant', row.id || '');
     }
   };
 
@@ -113,12 +119,14 @@ const createRenderer = () => {
     const type = getType(value);
     const isBranch = type === 'object' || type === 'array';
     const isCollapsed = collapsedPaths.has(path);
+    const safeId = `node-${path.replace(/[\.\[\]]/g, '-') || 'root'}`;
 
     const row = document.createElement('div');
     row.className = `tree-row${isBranch ? ' tree-row--branch' : ''}`;
     row.setAttribute('style', getIndentStyle(depth));
     row.setAttribute('data-path', path);
     row.setAttribute('data-depth', depth);
+    row.setAttribute('id', safeId);
     row.setAttribute('data-branch', isBranch ? 'true' : 'false');
     row.setAttribute('role', 'treeitem');
 
@@ -477,6 +485,11 @@ const createRenderer = () => {
     paths.forEach(path => collapsedPaths.delete(path));
   };
 
+  // Public wrapper so main.js can set focus after Tab from search
+  const setFocusedPath = (path, container) => {
+    setFocusedRow(container, path);
+  };
+
   return {
     render,
     handleKeyNav,
@@ -486,6 +499,7 @@ const createRenderer = () => {
     expandPaths,
     expandSubtreeAt,
     collapseSubtreeAt,
+    setFocusedPath,
     clearCollapsed,
   };
 };
