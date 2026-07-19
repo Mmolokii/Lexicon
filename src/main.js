@@ -4,6 +4,7 @@ let toastTimer = null;
 let isSearchActive = false;
 let currentQuery = '';
 let contextMenuPath = null; // node path context menu
+let shortcutsTrap = null; // focus trap instance for shortcuts overlay
 
 // DOM refs
 const ELEMENTS = {
@@ -49,6 +50,9 @@ const ELEMENTS = {
   btnSearchClose: document.getElementById('btn-search-close'),
   contextMenu: document.getElementById('context-menu'),
   contextMenuItems: document.querySelectorAll('.context-menu__item'),
+  overlayBackdrop: document.getElementById('overlay-backdrop'),
+  shortcutsOverlay: document.getElementById('shortcuts-overlay'),
+  btnShortcutsClose: document.getElementById('btn-shortcuts-close'),
 };
 
 const onSelectHandler = path => {
@@ -303,6 +307,28 @@ const handleContextAction = async action => {
   }
 
   closeContextMenu();
+};
+
+// Shortcuts overlay
+const openShortcuts = () => {
+  ELEMENTS.overlayBackdrop.hidden = false;
+  ELEMENTS.shortcutsOverlay.hidden = false;
+  document.body.style.overflow = 'hidden'; // prevent background scroll
+
+  // Create and activate the focus trap
+  shortcutsTrap = createFocusTrap(ELEMENTS.shortcutsOverlay);
+  shortcutsTrap.activate();
+};
+
+const closeShortcuts = () => {
+  ELEMENTS.overlayBackdrop.hidden = true;
+  ELEMENTS.shortcutsOverlay.hidden = true;
+  document.body.style.overflow = '';
+
+  if (shortcutsTrap) {
+    shortcutsTrap.deactivate(); // returns focus to previous element
+    shortcutsTrap = null;
+  }
 };
 
 // Fetch status UI
@@ -600,9 +626,37 @@ document.addEventListener('keydown', e => {
     return;
   }
 
+  // ? — open shortcuts overlay
+  // Guard: not when typing in an input or textarea
+  if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
+    const tag = document.activeElement.tagName.toLowerCase();
+    if (tag !== 'input' && tag !== 'textarea') {
+      e.preventDefault();
+      if (ELEMENTS.shortcutsOverlay.hidden) {
+        openShortcuts();
+      } else {
+        closeShortcuts();
+      }
+      return;
+    }
+  }
+
+  // cmd + shift + X — clear input (new shortcut wired to existing clear button)
+  if (cmdOrCtrl && e.shiftKey && e.key === 'X') {
+    e.preventDefault();
+    ELEMENTS.btnClear.click();
+    return;
+  }
+
   // Escape — clear selection
   if (e.key === 'Escape') {
-    // Close context menu first if open
+    // Close shortcuts overlay first if open
+    if (!ELEMENTS.shortcutsOverlay.hidden) {
+      closeShortcuts();
+      return;
+    }
+
+    // Then context menu
     if (!ELEMENTS.contextMenu.hidden) {
       closeContextMenu();
       return;
@@ -613,7 +667,7 @@ document.addEventListener('keydown', e => {
       return;
     }
 
-    // Otherwise clear the node
+    // Then clear selection
     ELEMENTS.treeContainer
       .querySelectorAll('.tree-row--selected')
       .forEach(r => r.classList.remove('tree-row--selected'));
@@ -668,7 +722,7 @@ document.addEventListener('keydown', e => {
 // Right-click on a tree row opens the context menu
 ELEMENTS.treeContainer.addEventListener('contextmenu', e => {
   const row = e.target.closest('.tree-row');
-  if (!row || !row.dataset.path === undefined) return;
+  if (!row || row.dataset.path === undefined) return;
 
   e.preventDefault();
   openContextMenu(e.clientX, e.clientY, row.dataset.path);
@@ -694,9 +748,29 @@ ELEMENTS.treeContainer.addEventListener('scroll', closeContextMenu, {
   passive: true,
 });
 
-// Search
+// Shortcuts overlay listeners
+ELEMENTS.btnShortcutsClose.addEventListener('click', closeShortcuts);
+ELEMENTS.overlayBackdrop.addEventListener('click', closeShortcuts);
 
+// Search
 const debouncedSearch = debounce(query => runSearch(query), 150);
+
+// Tab in search bar moves focus into tree at first matching row
+ELEMENTS.searchInput.addEventListener('keydown', e => {
+  if (e.key !== 'Tab' || e.shiftKey) return;
+
+  const firstMatch = ELEMENTS.treeContainer.querySelector('.tree-row--matched');
+  if (!firstMatch) return;
+
+  e.preventDefault();
+  ELEMENTS.treeContainer.focus({ preventScroll: true });
+
+  // Move the renderer's internal focus to the first match
+  const path = firstMatch.dataset.path;
+  if (path !== undefined) {
+    renderer.setFocusedPath(path, ELEMENTS.treeContainer);
+  }
+});
 
 ELEMENTS.searchInput.addEventListener('input', e => {
   debouncedSearch(e.target.value);
